@@ -1,28 +1,32 @@
 # Proposed replacement for the deploy-docs job in .github/workflows/docs.yaml
 #
-# CHANGES:
-# 1. Replace peaceiris/actions-gh-pages (pushes to gh-pages branch) with
-#    actions/deploy-pages (uploads artifact directly, no branch needed)
-# 2. Add permissions block for Pages deployment
-# 3. Add environment for GitHub Pages
+# This replaces the peaceiris/actions-gh-pages branch-push deployment with
+# GitHub's native Actions-based Pages deployment (artifact upload, no branch).
 #
-# PREREQUISITES (one-time repo settings change):
-# - Go to repo Settings > Pages > Source > select "GitHub Actions" (not "Deploy from a branch")
-# - Delete the gh-pages branch (after verifying the new workflow works)
+# WHAT CHANGES:
+#   - deploy mechanism: branch push → artifact upload (no gh-pages branch needed)
+#   - adds permissions block (pages: write, id-token: write)
+#   - adds environment block (links to github-pages environment in repo UI)
+#   - two new actions: upload-pages-artifact + deploy-pages (replace peaceiris)
 #
-# The rest of the workflow (doc-build-type, build-latest-docs, build-multi-docs) stays identical.
-# Only the deploy-docs job changes.
-
-# Add these permissions at the workflow level (or job level):
-# permissions:
-#   pages: write
-#   id-token: write
+# WHAT STAYS THE SAME:
+#   - check-secrets and build-docs jobs: untouched
+#   - multi-version doc structure: all version subdirs (main/, v2.3.2/, etc.) preserved
+#   - trigger conditions: main, devel, release/* branches
+#   - URLs: isaac-sim.github.io/IsaacLab/{version}/ — no change
+#
+# PREREQUISITES (one-time, before merging this change):
+#   1. Repo Settings → Pages → Source → select "GitHub Actions" (not "Deploy from a branch")
+#   2. After verifying the new deployment works, delete the gh-pages branch
+#
+# The check-secrets and build-docs jobs remain exactly as they are.
+# Only this deploy-docs job is replaced.
 
   deploy-docs:
     name: Deploy Docs
     runs-on: ubuntu-latest
-    needs: [doc-build-type, build-multi-docs]
-    if: needs.doc-build-type.outputs.trigger-deploy == 'true'
+    needs: [check-secrets, build-docs]
+    if: needs.check-secrets.outputs.trigger-deploy == 'true'
     permissions:
       pages: write
       id-token: write
