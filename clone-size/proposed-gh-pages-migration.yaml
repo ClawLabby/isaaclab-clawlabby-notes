@@ -1,0 +1,47 @@
+# Proposed replacement for the deploy-docs job in .github/workflows/docs.yaml
+#
+# CHANGES:
+# 1. Replace peaceiris/actions-gh-pages (pushes to gh-pages branch) with
+#    actions/deploy-pages (uploads artifact directly, no branch needed)
+# 2. Add permissions block for Pages deployment
+# 3. Add environment for GitHub Pages
+#
+# PREREQUISITES (one-time repo settings change):
+# - Go to repo Settings > Pages > Source > select "GitHub Actions" (not "Deploy from a branch")
+# - Delete the gh-pages branch (after verifying the new workflow works)
+#
+# The rest of the workflow (doc-build-type, build-latest-docs, build-multi-docs) stays identical.
+# Only the deploy-docs job changes.
+
+# Add these permissions at the workflow level (or job level):
+# permissions:
+#   pages: write
+#   id-token: write
+
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    needs: [doc-build-type, build-multi-docs]
+    if: needs.doc-build-type.outputs.trigger-deploy == 'true'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Download docs artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: docs-html
+        path: ./docs/_build
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./docs/_build
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
