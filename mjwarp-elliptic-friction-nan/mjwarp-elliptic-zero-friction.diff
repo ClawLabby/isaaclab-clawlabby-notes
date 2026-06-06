@@ -1,0 +1,147 @@
+diff --git a/mujoco_warp/_src/constraint.py b/mujoco_warp/_src/constraint.py
+index f2bdf7f..fef7ba1 100644
+--- a/mujoco_warp/_src/constraint.py
++++ b/mujoco_warp/_src/constraint.py
+@@ -1960,8 +1960,8 @@ def _contact_elliptic(
+       friction = friction_in[conid]
+ 
+       if dimid > 1:
+-        fri0 = friction[0]
+-        frii = friction[dimid - 1]
++        fri0 = wp.max(types.MJ_MINMU, friction[0])
++        frii = wp.max(types.MJ_MINMU, friction[dimid - 1])
+         fri = fri0 * fri0 / (frii * frii)
+         invweight *= fri
+ 
+diff --git a/mujoco_warp/_src/solver.py b/mujoco_warp/_src/solver.py
+index ceafb6f..1114244 100644
+--- a/mujoco_warp/_src/solver.py
++++ b/mujoco_warp/_src/solver.py
+@@ -35,6 +35,11 @@ wp.set_module_options({"enable_backward": False})
+ _BLOCK_CHOLESKY_DIM = 32
+ 
+ 
++@wp.func
++def _elliptic_mu(friction0: float, impratio_invsqrt: float) -> float:
++  return wp.max(types.MJ_MINMU, friction0) * impratio_invsqrt
++
++
+ @dataclasses.dataclass
+ class InverseContext:
+   """Workspace arrays for inverse dynamics."""
+@@ -270,7 +275,7 @@ def _eval_elliptic(
+   quad2: wp.vec3,
+   alpha: float,
+ ) -> wp.vec3:
+-  mu = friction[0] * impratio_invsqrt
++  mu = _elliptic_mu(friction[0], impratio_invsqrt)
+ 
+   u0 = quad1[0]
+   v0 = quad1[1]
+@@ -405,7 +410,7 @@ def linesearch_parallel_fused(
+         continue
+ 
+       friction = contact_friction_in[conid]
+-      mu = friction[0] * opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]]
++      mu = _elliptic_mu(friction[0], opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]])
+ 
+       # unpack quad
+       efcid1 = contact_efc_address_in[conid, 1]
+@@ -1008,7 +1013,7 @@ def linesearch_iterative(ls_iterations: int, cone_type: types.ConeType, fuse_jv:
+               # primary row: accumulate secondary rows and write quad, quad1, quad2
+               dim = contact_dim_in[conid]
+               friction = contact_friction_in[conid]
+-              mu = friction[0] * impratio_invsqrt
++              mu = _elliptic_mu(friction[0], impratio_invsqrt)
+ 
+               u0 = Jaref * mu
+               v0 = jv * mu
+@@ -1570,7 +1575,7 @@ def linesearch_prepare_quad(
+ 
+     dim = contact_dim_in[conid]
+     friction = contact_friction_in[conid]
+-    mu = friction[0] * opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]]
++    mu = _elliptic_mu(friction[0], opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]])
+ 
+     u0 = Jaref * mu
+     v0 = jv * mu
+@@ -1891,7 +1896,7 @@ def update_constraint_efc(track_changes: bool):
+ 
+       dim = contact_dim_in[conid]
+       friction = contact_friction_in[conid]
+-      mu = friction[0] * opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]]
++      mu = _elliptic_mu(friction[0], opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]])
+ 
+       efcid0 = contact_efc_address_in[conid, 0]
+       if efcid0 < 0:
+@@ -2484,7 +2489,7 @@ def update_gradient_JTCJ_sparse(
+       return
+ 
+     fri = contact_friction_in[conid]
+-    mu = fri[0] * opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]]
++    mu = _elliptic_mu(fri[0], opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]])
+ 
+     mu2 = mu * mu
+     dm = math.safe_div(efc_D_in[worldid, efcid0], mu2 * (1.0 + mu2))
+@@ -2649,7 +2654,7 @@ def update_gradient_JTCJ_dense(
+       continue
+ 
+     fri = contact_friction_in[conid]
+-    mu = fri[0] * opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]]
++    mu = _elliptic_mu(fri[0], opt_impratio_invsqrt[worldid % opt_impratio_invsqrt.shape[0]])
+ 
+     mu2 = mu * mu
+     dm = math.safe_div(efc_D_in[worldid, efcid0], mu2 * (1.0 + mu2))
+diff --git a/mujoco_warp/_src/solver_test.py b/mujoco_warp/_src/solver_test.py
+index 1014ee6..844d81d 100644
+--- a/mujoco_warp/_src/solver_test.py
++++ b/mujoco_warp/_src/solver_test.py
+@@ -26,6 +26,7 @@ from mujoco_warp import ConeType
+ from mujoco_warp import SolverType
+ from mujoco_warp import test_data
+ from mujoco_warp._src import solver
++from mujoco_warp._src import types
+ from mujoco_warp._src.types import SPARSE_CONSTRAINT_JACOBIAN
+ 
+ # tolerance for difference between MuJoCo and MJWarp solver calculations - mostly
+@@ -192,6 +193,40 @@ class SolverTest(parameterized.TestCase):
+         ctx_quad_gauss = ctx.quad_gauss.numpy()[0]
+         _assert_eq(ctx_quad_gauss, target_quad_gauss, "quad_gauss")
+ 
++  @parameterized.product(
++    jacobian=(mujoco.mjtJacobian.mjJAC_DENSE, mujoco.mjtJacobian.mjJAC_SPARSE),
++    ls_parallel=(False, True),
++  )
++  def test_elliptic_zero_contact_friction_has_finite_linesearch_quad(self, jacobian, ls_parallel):
++    xml = """
++    <mujoco>
++      <option cone="elliptic" solver="Newton" iterations="20" ls_iterations="20" timestep="0.002"/>
++      <worldbody>
++        <geom type="plane" size="2 2 .1" condim="3" friction="1 0 0"/>
++        <body pos="0 0 .095">
++          <freejoint/>
++          <geom type="sphere" size=".1" mass="1" condim="3" friction="1 0 0"/>
++        </body>
++      </worldbody>
++    </mujoco>
++    """
++    _, _, m, d = test_data.fixture(xml=xml, overrides={"opt.jacobian": jacobian, "opt.ls_parallel": ls_parallel})
++
++    # Normal MJWarp collision clamps contact friction. This deliberately models
++    # an external producer writing contacts directly into Data.
++    mjw.step(m, d)
++    self.assertGreater(d.nacon.numpy()[0], 0)
++    d.contact.friction.fill_(types.vec5(0.0, 0.0, 0.0, 0.0, 0.0))
++
++    mjw.make_constraint(m, d)
++    ctx = solver.create_solver_context(m, d)
++    solver._solve(m, d, ctx)
++
++    nefc = d.nefc.numpy()[0]
++    self.assertTrue(np.isfinite(ctx.quad.numpy()[0, :nefc]).all())
++    self.assertTrue(np.isfinite(d.efc.force.numpy()[0, :nefc]).all())
++    self.assertTrue(np.isfinite(d.qacc.numpy()).all())
++
+   @parameterized.product(
+     cone=(ConeType.PYRAMIDAL, ConeType.ELLIPTIC), jacobian=(mujoco.mjtJacobian.mjJAC_SPARSE, mujoco.mjtJacobian.mjJAC_DENSE)
+   )
