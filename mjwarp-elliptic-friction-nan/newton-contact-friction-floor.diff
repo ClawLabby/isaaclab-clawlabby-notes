@@ -1,0 +1,100 @@
+diff --git a/newton/_src/solvers/mujoco/kernels.py b/newton/_src/solvers/mujoco/kernels.py
+index 5c9d0845..a6cfd80d 100644
+--- a/newton/_src/solvers/mujoco/kernels.py
++++ b/newton/_src/solvers/mujoco/kernels.py
+@@ -19,6 +19,7 @@ vec11 = wp.types.vector(length=11, dtype=wp.float32)
+ 
+ # Constants
+ MJ_MINVAL = 2.220446049250313e-16
++MJ_MINMU = 1.0e-5
+ 
+ 
+ # Utility functions
+@@ -147,6 +148,13 @@ def contact_params(
+         max_geom_friction[2],
+         max_geom_friction[2],
+     )
++    friction = vec5(
++        wp.max(MJ_MINMU, friction[0]),
++        wp.max(MJ_MINMU, friction[1]),
++        wp.max(MJ_MINMU, friction[2]),
++        wp.max(MJ_MINMU, friction[3]),
++        wp.max(MJ_MINMU, friction[4]),
++    )
+ 
+     if geom_solref[worldid, g1].x > 0.0 and geom_solref[worldid, g2].x > 0.0:
+         solref = mix * geom_solref[worldid, g1] + (1.0 - mix) * geom_solref[worldid, g2]
+@@ -360,6 +368,13 @@ def convert_newton_contacts_to_mjwarp_kernel(
+                 friction[3],
+                 friction[4],
+             )
++            friction = vec5(
++                wp.max(MJ_MINMU, friction[0]),
++                wp.max(MJ_MINMU, friction[1]),
++                wp.max(MJ_MINMU, friction[2]),
++                wp.max(MJ_MINMU, friction[3]),
++                wp.max(MJ_MINMU, friction[4]),
++            )
+ 
+     # Use the write_contact function to write all the data
+     write_contact(
+diff --git a/newton/tests/test_mujoco_solver.py b/newton/tests/test_mujoco_solver.py
+index 9e554729..643606f8 100644
+--- a/newton/tests/test_mujoco_solver.py
++++ b/newton/tests/test_mujoco_solver.py
+@@ -3976,6 +3976,55 @@ class TestMuJoCoSolverNewtonContacts(unittest.TestCase):
+         n_stale = int((efc_address[inactive] >= 0).sum())
+         self.assertEqual(n_stale, 0, f"{n_stale}/{inactive.sum()} inactive contacts have stale efc_address")
+ 
++    def test_elliptic_newton_contacts_floor_small_friction(self):
++        """Newton-supplied contacts use MJWarp's friction floor for elliptic cones."""
++        builder = newton.ModelBuilder()
++        builder.default_shape_cfg.ke = 1e4
++        builder.default_shape_cfg.kd = 1000.0
++        builder.default_shape_cfg.mu = 0.0
++        builder.default_shape_cfg.mu_torsional = 0.0
++        builder.default_shape_cfg.mu_rolling = 0.0
++        builder.add_ground_plane()
++
++        radius = 0.5
++        body = builder.add_body(xform=wp.transform(wp.vec3(0.0, 0.0, radius), wp.quat_identity()))
++        builder.add_shape_sphere(body=body, radius=radius)
++        model = builder.finalize()
++
++        try:
++            solver = SolverMuJoCo(
++                model,
++                use_mujoco_contacts=False,
++                cone="elliptic",
++                solver="newton",
++                integrator="euler",
++                iterations=25,
++                ls_iterations=25,
++            )
++        except ImportError as e:
++            self.skipTest(f"MuJoCo or deps not installed. Skipping test: {e}")
++
++        contacts = model.contacts()
++        state_in, state_out, control = model.state(), model.state(), model.control()
++        newton.eval_fk(model, model.joint_q, model.joint_qd, state_in)
++
++        for _ in range(10):
++            state_in.clear_forces()
++            model.collide(state_in, contacts)
++            solver.step(state_in, state_out, control, contacts, 0.002)
++            state_in, state_out = state_out, state_in
++
++        nacon = solver.mjw_data.nacon.numpy()[0]
++        self.assertGreater(nacon, 0)
++
++        friction = solver.mjw_data.contact.friction.numpy()[:nacon]
++        self.assertTrue(np.all(friction >= 1.0e-5), f"Contact friction was not floored: {friction}")
++
++        self.assertTrue(np.isfinite(solver.mjw_data.qpos.numpy()).all())
++        self.assertTrue(np.isfinite(solver.mjw_data.qvel.numpy()).all())
++        self.assertTrue(np.isfinite(solver.mjw_data.qacc.numpy()).all())
++        self.assertTrue(np.isfinite(solver.mjw_data.efc.force.numpy()).all())
++
+ 
+ class TestMuJoCoValidation(unittest.TestCase):
+     """Test cases for SolverMuJoCo._validate_model_for_separate_worlds()."""

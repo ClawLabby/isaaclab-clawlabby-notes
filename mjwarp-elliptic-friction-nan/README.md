@@ -10,8 +10,9 @@ Newton-supplied contacts can bypass MJWarp's collision-time friction floor. When
 
 The failure is specific to the elliptic cone path because that path treats the normal and tangential contact rows as a coupled cone and repeatedly divides by terms derived from the primary friction coefficient `mu`. Pyramidal cones split friction into separate linearized rows and do not use the same coupled-cone denominator.
 
-The MJWarp patch is included here:
+The fix diffs and repro are included here:
 
+- [`newton-contact-friction-floor.diff`](newton-contact-friction-floor.diff)
 - [`mjwarp-elliptic-zero-friction.diff`](mjwarp-elliptic-zero-friction.diff)
 - [`repro_zero_friction_elliptic.py`](repro_zero_friction_elliptic.py)
 
@@ -25,22 +26,21 @@ Generated visuals:
 
 Newton:
 
-- Checkout: `/home/horde/claw/git/newton`
+- Repository: Newton
 - Branch: `claw/investigate-elliptic-mjwarp-nans`
 - Commit: `4d159e0a3f25b53e7d692a1a457ba45e8a3d10fd`
-- Note: checkout has one unrelated dirty file, `docs/images/examples/resize.sh`
+- Diff: [`newton-contact-friction-floor.diff`](newton-contact-friction-floor.diff)
 
 MJWarp:
 
-- Checkout: `/home/horde/claw/git/mujoco_warp`
+- Repository: MuJoCo Warp
 - Branch: `claw/fix-elliptic-small-friction-v3.6.0`
 - Commit: `51adb51bd6afdb2022011310913fb32ebcbde8a3`
-- Status: clean
+- Diff: [`mjwarp-elliptic-zero-friction.diff`](mjwarp-elliptic-zero-friction.diff)
 
-Unpatched comparison worktree:
+Unpatched comparison baseline:
 
-- Checkout: `/home/horde/claw/git/mujoco_warp-before-elliptic-nan`
-- Commit: `d9bcc32` (`Bump MuJoCo Warp to v3.6.0 (#1214)`)
+- MuJoCo Warp commit: `d9bcc32` (`Bump MuJoCo Warp to v3.6.0 (#1214)`)
 
 ## Observed Failure
 
@@ -242,8 +242,7 @@ PYTHONPATH=/path/to/mujoco_warp uv run --extra sim --with pytest \
 Checkout:
 
 ```text
-/home/horde/claw/git/mujoco_warp-before-elliptic-nan
-commit d9bcc32
+MuJoCo Warp commit d9bcc32
 ```
 
 Observed output:
@@ -264,8 +263,7 @@ The important value is the final `inf` in the elliptic quad. The single-step for
 Checkout:
 
 ```text
-/home/horde/claw/git/mujoco_warp
-commit 51adb51bd6afdb2022011310913fb32ebcbde8a3
+MuJoCo Warp commit 51adb51bd6afdb2022011310913fb32ebcbde8a3
 ```
 
 Observed output:
@@ -286,8 +284,8 @@ The curvature term is still large, as expected for a tiny friction floor, but it
 Fresh validation on 2026-06-06:
 
 ```bash
-PYTHONPATH=/home/horde/claw/git/mujoco_warp uv run --extra sim --with pytest \
-  pytest -q /home/horde/claw/git/mujoco_warp/mujoco_warp/_src/solver_test.py \
+PYTHONPATH=/path/to/mujoco_warp uv run --extra sim --with pytest \
+  pytest -q /path/to/mujoco_warp/mujoco_warp/_src/solver_test.py \
   -k 'elliptic_zero_contact_friction_has_finite_linesearch_quad or init_linesearch or parallel_linesearch or constraint_update'
 ```
 
