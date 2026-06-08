@@ -15,6 +15,7 @@ The fix diffs and repro are included here:
 - [`newton-contact-friction-floor.diff`](newton-contact-friction-floor.diff)
 - [`mjwarp-elliptic-zero-friction.diff`](mjwarp-elliptic-zero-friction.diff)
 - [`repro_zero_friction_elliptic.py`](repro_zero_friction_elliptic.py)
+- [`newton_1_3_sample_tests.py`](newton_1_3_sample_tests.py)
 
 Generated visuals:
 
@@ -41,6 +42,42 @@ MJWarp:
 Unpatched comparison baseline:
 
 - MuJoCo Warp commit: `d9bcc32` (`Bump MuJoCo Warp to v3.6.0 (#1214)`)
+
+## Newton 1.3 Release-Branch Retest
+
+Fresh retest on 2026-06-08 against public Newton `release-1.3`:
+
+- Repository: `newton-physics/newton`
+- Branch: `release-1.3`
+- Commit: `3389003b151cb22739174c4abaa06203063c1ce5`
+- Version tag in checkout: `v1.3.0rc1`
+- Installed stack from `uv run --extra sim`: `newton=1.3.0rc1`, `mujoco_warp=3.8.1`, `mujoco=3.8.1`, `warp-lang=1.14.0`
+
+The result is mixed:
+
+- The plain Newton zero-friction sphere/ground case no longer reproduces the obvious failure. Newton release-1.3 floors the mixed geom friction in `contact_params()`, so the contact written into MJWarp has slide friction around `1.0e-5` and `qpos`, `qvel`, `qacc`, and `efc.force` stay finite in the simple repro.
+- The pinned MJWarp solver bug is still present. If an external producer writes zero friction into `d.contact.friction`, the elliptic Newton solver still produces an infinite line-search quad entry.
+- Newton's producer-side guard is still incomplete. The release branch floors the mixed geom friction before applying a positive `rigid_contact_friction` scale, but does not floor the scaled result again. A tiny positive per-contact scale can therefore write sub-`MJ_MINMU` friction into MJWarp.
+
+The sample tests in [`newton_1_3_sample_tests.py`](newton_1_3_sample_tests.py) encode those three cases:
+
+```bash
+uv run --extra sim --with pytest pytest -q \
+  mjwarp-elliptic-friction-nan/newton_1_3_sample_tests.py
+```
+
+Observed on `release-1.3` at `3389003b`:
+
+```text
+FF. [100%]
+FAILED test_newton_per_contact_friction_scale_keeps_mjwarp_floor
+  AssertionError: [9.99994610111476e-41]
+FAILED test_pinned_mjwarp_external_zero_friction_has_finite_quad
+  AssertionError: [[18.089473724365234, -572.0704345703125, 4522.859375], [0.0, -0.0, 0.0], [0.0, 0.0, inf]]
+2 failed, 1 passed, 2 warnings
+```
+
+The passing control is `test_plain_zero_friction_newton_contacts_are_currently_masked`, which captures the currently masked simple Newton contact path.
 
 ## Observed Failure
 
