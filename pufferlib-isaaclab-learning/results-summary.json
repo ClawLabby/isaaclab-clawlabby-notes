@@ -1,0 +1,114 @@
+{
+  "date": "2026-06-10",
+  "run_root_name": "pufferlib-isaaclab-eval/learning_runs/full_20260609T161900Z",
+  "tasks": {
+    "Isaac-Ant-v0": {
+      "num_envs": 4096,
+      "matched_iterations": 1000,
+      "seeds": [42, 43],
+      "rsl_rl": {
+        "mean_return": 152.18183135986328,
+        "mean_throughput": 286197.0,
+        "per_seed": {
+          "42": {
+            "return": 151.69277954101562,
+            "throughput": 287157.0,
+            "training_time_s": 465.35
+          },
+          "43": {
+            "return": 152.67088317871094,
+            "throughput": 285237.0,
+            "training_time_s": 473.69
+          }
+        }
+      },
+      "puffer_matched_rsl": {
+        "return_metric": "estimated_episode_return = last50_mean_reward / last50_mean_done",
+        "mean_estimated_return": 151.37538711937958,
+        "mean_throughput": 260271.32564120373,
+        "mean_rollout_s": 0.37945032119750977,
+        "mean_train_s": 0.11646449565887451,
+        "per_seed": {
+          "42": {
+            "estimated_return": 134.84016436841114,
+            "throughput": 260214.63308194993,
+            "last50_mean_reward": 0.15027962654829025,
+            "last50_mean_done": 0.001114501953125,
+            "estimated_episode_length": 897.2617743702081,
+            "rollout_s": 0.37766265869140625,
+            "train_s": 0.11661458015441895
+          },
+          "43": {
+            "estimated_return": 167.91060987034803,
+            "throughput": 260328.01820045753,
+            "last50_mean_reward": 0.18588126748800277,
+            "last50_mean_done": 0.001107025146484375,
+            "estimated_episode_length": 903.3218470020676,
+            "rollout_s": 0.3812379837036133,
+            "train_s": 0.11631441116333008
+          }
+        }
+      },
+      "puffer_mingru": {
+        "iterations": 300,
+        "seed": 42,
+        "estimated_return": 0.7565719560756806,
+        "throughput": 231950.63120943416
+      }
+    },
+    "Isaac-Velocity-Rough-Anymal-C-v0": {
+      "num_envs": 4096,
+      "matched_iterations": 1500,
+      "seeds": [42, 43],
+      "rsl_rl": {
+        "mean_return": 16.908181190490723,
+        "mean_throughput": 71894.0,
+        "per_seed": {
+          "42": {
+            "return": 16.2080135345459,
+            "throughput": 71332.0,
+            "training_time_s": 2104.36
+          },
+          "43": {
+            "return": 17.608348846435547,
+            "throughput": 72456.0,
+            "training_time_s": 2077.71
+          }
+        }
+      },
+      "puffer_matched_rsl": {
+        "return_metric": "estimated_episode_return = last50_mean_reward / last50_mean_done",
+        "mean_estimated_return": 17.02453470455709,
+        "mean_throughput": 68687.28024795301,
+        "mean_rollout_s": 1.2980958223342896,
+        "mean_train_s": 0.12308931350708008,
+        "per_seed": {
+          "42": {
+            "estimated_return": 17.208384636199362,
+            "throughput": 67676.45387619182,
+            "last50_mean_reward": 0.01867112599313259,
+            "last50_mean_done": 0.0010850016656331718,
+            "estimated_episode_length": 921.6575712963836,
+            "rollout_s": 1.3122954368591309,
+            "train_s": 0.1248328685760498
+          },
+          "43": {
+            "estimated_return": 16.840684772914823,
+            "throughput": 69698.10661971419,
+            "last50_mean_reward": 0.018361253440380098,
+            "last50_mean_done": 0.0010902913799509407,
+            "estimated_episode_length": 917.1860095280185,
+            "rollout_s": 1.2838962078094482,
+            "train_s": 0.12134575843811035
+          }
+        }
+      },
+      "puffer_mingru": {
+        "iterations": 300,
+        "seed": 42,
+        "estimated_return": -2.3053864725098863,
+        "throughput": 49619.66460702306
+      }
+    }
+  }
+}

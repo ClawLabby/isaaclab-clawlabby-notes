@@ -11,3 +11,7 @@ Analyses, findings, and proposals related to [Isaac Lab](https://github.com/isaa
 ### [clone-size/](clone-size/)
 - **[isaac-lab-clone-size.md](clone-size/isaac-lab-clone-size.md)** — Analysis of why `git clone` downloads 1.1 GB (the `gh-pages` branch). Includes benchmarks showing a one-line fix (`--single-branch -b develop`) cuts clone time from 44s to 3s and size from 1.1 GB to 62 MB.
 - **[proposed-gh-pages-migration.yaml](clone-size/proposed-gh-pages-migration.yaml)** — Drop-in replacement for the `deploy-docs` job that switches from branch-based GitHub Pages to the Actions deployment path, eliminating the bloated `gh-pages` branch entirely.
+
+### [pufferlib-isaaclab-learning/](pufferlib-isaaclab-learning/)
+- **[README.md](pufferlib-isaaclab-learning/README.md)** — Full-learning evaluation of an experimental PufferLib-style IsaacLab backend against RSL-RL on Ant and rough Anymal-C. Documents why the initial smoke comparison was invalid, what the matched PPO prototype implements, learning/throughput results, and remaining native-integration gaps.
+- **[results-summary.json](pufferlib-isaaclab-learning/results-summary.json)** — Sanitized aggregate and per-seed metrics from the completed learning matrix.
