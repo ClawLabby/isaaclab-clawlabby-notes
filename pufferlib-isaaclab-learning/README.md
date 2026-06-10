@@ -6,18 +6,17 @@
 
 ## Summary
 
-PufferLib was evaluated as an IsaacLab reinforcement-learning backend using real
-learning runs, not one-iteration smoke timings. The important result is narrow:
-a pure-PyTorch Puffer-style backend can match RSL-RL learning quality on both a
-simple locomotion task and the rough-terrain quadruped task when the PPO
-configuration is matched, but it was slightly slower in this prototype.
+PufferLib was evaluated as a possible IsaacLab reinforcement-learning backend.
+The main result is narrow but useful: a pure-PyTorch Puffer-style backend can
+match RSL-RL learning quality on both a simple locomotion task and the
+rough-terrain quadruped task when the PPO configuration is matched, but it was
+slightly slower in this prototype.
 
-The earlier 4096-env smoke comparison was misleading. It matched environment
-count and rollout length, but not trainer work. The final comparison uses a
-matched PPO profile that copies the task's RSL-RL actor/critic MLP sizes,
-optimizer, PPO epochs, minibatches, horizon, discounting, GAE lambda, clipping,
-entropy/value coefficients, initial action std, adaptive KL schedule, action
-clipping, and timeout bootstrapping.
+The final comparison uses real learning runs and a matched PPO profile. It
+copies the task's RSL-RL actor/critic MLP sizes, optimizer, PPO epochs,
+minibatches, horizon, discounting, GAE lambda, clipping, entropy/value
+coefficients, initial action std, adaptive KL schedule, action clipping, and
+timeout bootstrapping.
 
 Bottom line:
 
@@ -32,6 +31,21 @@ Bottom line:
 - Not shown: a native PufferLib/Ocean speedup. PufferLib 4.0 expects compiled
   Ocean-style C environments, so IsaacLab would need a native bridge or
   external-vector hook before it can use the headline native backend path.
+
+## Relevance to Lab and Newton
+
+For a Lab/Newton reader, this should be treated as an IsaacLab RL-backend
+experiment, not as a Newton physics change. The prototype runs on IsaacLab vector
+environments and can therefore sit above either PhysX-backed or Newton-backed
+simulation paths, but it does not modify Newton, replace the Newton integration,
+or demonstrate a Newton-specific performance improvement.
+
+The practical value is that IsaacLab could host a Puffer-style experimental
+trainer while preserving the normal task surface. That is useful if the team
+wants a controlled place to test alternative policy architectures, optimizers,
+or a future PufferLib-native bridge against Lab/Newton tasks. The current data
+does not justify a product claim that PufferLib makes Lab or Newton training
+faster.
 
 ## Repositories and Baselines
 
@@ -51,25 +65,26 @@ The prototype was scratch work in the IsaacLab checkout. At the time these notes
 were written, the backend files were local/untracked rather than committed to an
 IsaacLab branch.
 
-## Why the First Comparison Was Wrong
+## Comparison Methodology
 
-The first 4096-env check compared:
+The matched comparison controls both environment workload and trainer workload:
 
 - Puffer-style PoC: `4096 envs * 24 horizon = 98,304 transitions`
 - RSL-RL baseline: `4096 envs * 24 num_steps_per_env = 98,304 transitions`
 
-The environment count was not the problem. The trainer workloads were different:
+Matching the transition count alone is not enough. Trainer workload can change
+throughput substantially, so the final comparison also matches or accounts for:
 
-- The PoC used a lightweight recurrent policy, Muon, one update epoch, three
-  large minibatches, and thin manual rollout storage.
-- RSL-RL used separate actor and critic MLPs, Adam, five learning epochs, four
-  minibatches per epoch, `TensorDict`/`RolloutStorage`, timeout bootstrapping,
-  NaN checks, normalization hooks, and logger bookkeeping.
-- Timing boundaries also lacked explicit CUDA synchronization in the initial
-  smoke run, so GPU work could smear across rollout and train timing.
+- Actor and critic model shape.
+- Optimizer and PPO update schedule.
+- Learning epochs and minibatch count.
+- Rollout storage, timeout bootstrapping, NaN checks, normalization hooks, and
+  logger bookkeeping.
+- CUDA synchronization around rollout and training timers.
 
-That run was useful only as an integration smoke test. It was not evidence that
-PufferLib made IsaacLab rollout twice as fast.
+Short integration checks are still useful for proving that a backend can step
+and update without crashing. They should not be used as speed evidence unless
+the trainer workload and timing boundaries are also matched.
 
 ## Prototype Integration
 
@@ -200,9 +215,9 @@ was about 4-5% slower on final-iteration throughput.
 
 ## Timing Interpretation
 
-The final timing numbers are more reliable than the first smoke comparison
-because the Puffer runner explicitly synchronizes CUDA around rollout and train
-timers. Still, the timing comparison is not a full systems benchmark:
+The final timing numbers are more reliable because the Puffer runner explicitly
+synchronizes CUDA around rollout and train timers. Still, the timing comparison
+is not a full systems benchmark:
 
 - RSL-RL and the Puffer prototype do not expose identical metric definitions.
 - Puffer's total wall-clock training time was not extracted into the summary the
