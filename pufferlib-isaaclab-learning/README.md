@@ -1,16 +1,22 @@
 # PufferLib IsaacLab Full-Learning Evaluation
 
 **Author:** ClawLabby
-**Date:** 2026-06-10
-**Status:** Matched full-learning comparison completed; prototype integration is useful for experimentation but not a demonstrated speed win
+**Date:** 2026-06-10, updated 2026-06-16
+**Status:** State-observation matched PPO is not a speed win; rendered-pixel Newton/Warp camera probes do show tangible value for a tensor-native Puffer-style backend
 
 ## Summary
 
 PufferLib was evaluated as a possible IsaacLab reinforcement-learning backend.
-The main result is narrow but useful: a pure-PyTorch Puffer-style backend can
-match RSL-RL learning quality on both a simple locomotion task and the
-rough-terrain quadruped task when the PPO configuration is matched, but it was
-slightly slower in this prototype.
+The result now splits by observation regime:
+
+- With state observations and matched PPO, a pure-PyTorch Puffer-style backend
+  can match RSL-RL learning quality on both a simple locomotion task and the
+  rough-terrain quadruped task, but it was slightly slower in this prototype.
+- With Newton/Warp rendering and pixel observations in the loop, the balance
+  changes. After fixing duplicate shared-CNN work in the experimental camera
+  runner, the Puffer-style backend was consistently faster than RSL-RL on
+  throughput because PPO update time dropped enough to offset slower
+  rollout/render time.
 
 The final comparison uses real learning runs and a matched PPO profile. It
 copies the task's RSL-RL actor/critic MLP sizes, optimizer, PPO epochs,
@@ -24,13 +30,29 @@ Bottom line:
   `152.2`; matched Puffer `260k SPS` vs RSL-RL `286k FPS/SPS`.
 - `Isaac-Velocity-Rough-Anymal-C-v0`: matched Puffer estimated return `17.0`
   vs RSL-RL return `16.9`; matched Puffer `68.7k SPS` vs RSL-RL `71.9k FPS/SPS`.
+- `Isaac-Cartpole-Camera-Direct` with Newton/Warp RGB camera observations:
+  optimized Puffer was faster than RSL-RL by `+21.6%` to `+42.5%` at 100x100
+  across 256-2048 envs, `+27.2%` at 160x160/256 envs, and about `+24%` at
+  224x224/128 envs across two seeds.
 - The Puffer-specific MinGRU/Muon exploratory profile did not learn in the
   short 300-iteration runs.
-- Current value: experimental backend flexibility, config-controlled algorithm
-  prototyping, and a place to test PufferLib ideas inside IsaacLab.
+- Current value: for state-observation locomotion, experimental backend
+  flexibility and config-controlled algorithm prototyping; for rendered-pixel
+  RL, a concrete throughput reason to prototype a tensor-native Hermes/IsaacLab
+  backend.
 - Not shown: a native PufferLib/Ocean speedup. PufferLib 4.0 expects compiled
   Ocean-style C environments, so IsaacLab would need a native bridge or
   external-vector hook before it can use the headline native backend path.
+
+Follow-up native-path writeup:
+
+- [`native-integration-path.md`](native-integration-path.md) covers the
+  external-vector approach, pure-Warp-only scope, local prototype changes, and
+  why the main blocker is currently a PufferLib native hook rather than an
+  IsaacLab task port.
+- [`cartpole-camera-newton-pixel-results.md`](cartpole-camera-newton-pixel-results.md)
+  covers the June 16 Newton/Warp camera-mode experiments and the corrected value
+  assessment for pixel-heavy RL.
 
 ## Relevance to Lab and Newton
 
@@ -44,8 +66,9 @@ The practical value is that IsaacLab could host a Puffer-style experimental
 trainer while preserving the normal task surface. That is useful if the team
 wants a controlled place to test alternative policy architectures, optimizers,
 or a future PufferLib-native bridge against Lab/Newton tasks. The current data
-does not justify a product claim that PufferLib makes Lab or Newton training
-faster.
+does not justify a broad product claim that PufferLib makes Lab or Newton
+training faster in general, but the camera probes do justify a targeted
+pixel-heavy Hermes/IsaacLab backend prototype.
 
 ## Repositories and Baselines
 
@@ -279,19 +302,28 @@ Until one of those exists, the prototype should be described as
 "Puffer-style/Puffer-inspired pure PyTorch backend," not "native PufferLib
 backend."
 
+See [`native-integration-path.md`](native-integration-path.md) for the deeper
+follow-up investigation into that external-vector/native bridge.
+
 ## Recommended Next Work
 
 1. Commit the IsaacLab prototype to a dedicated branch if it should be preserved
    beyond this evaluation. Keep it explicitly experimental.
-2. Make RSL-RL and Puffer log the same episodic-return accumulator so the
+2. Preserve the camera-aware backend changes separately from the state-observation
+   PPO comparison path, since the camera result now carries the clearest
+   performance signal.
+3. Run a larger rendered-pixel task with real learning curves and identical
+   episodic-return logging, not only Cartpole throughput probes.
+4. Profile camera rollout/render overhead separately from PPO update overhead.
+5. Make RSL-RL and Puffer log the same episodic-return accumulator so the
    comparison no longer needs reward/done-rate conversion.
-3. Add a clean wall-clock summary for Puffer runs, matching the RSL-RL
+6. Add a clean wall-clock summary for Puffer runs, matching the RSL-RL
    `Training time` extraction.
-4. Run a small tuning pass for `puffer_mingru` on Ant only. Do not spend rough
+7. Run a small tuning pass for `puffer_mingru` on Ant only. Do not spend rough
    Anymal-C time until Ant learning is nontrivial.
-5. If PufferLib remains strategically interesting, prototype the smallest
+8. If PufferLib remains strategically interesting, prototype the smallest
    external-vector/native bridge and benchmark env stepping separately from PPO
    update time.
-6. Treat any future speed claims as invalid unless task, env count, horizon,
+9. Treat any future speed claims as invalid unless task, env count, horizon,
    model size, optimizer, epochs, minibatches, logging, checks, CUDA
    synchronization, and reward metrics are explicitly matched.
