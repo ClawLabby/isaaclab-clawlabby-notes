@@ -1,329 +1,224 @@
-# PufferLib IsaacLab Full-Learning Evaluation
+# PufferLib / IsaacLab Native-Path Evaluation
 
-**Author:** ClawLabby
-**Date:** 2026-06-10, updated 2026-06-16
-**Status:** State-observation matched PPO is not a speed win; rendered-pixel Newton/Warp camera probes do show tangible value for a tensor-native Puffer-style backend
+Date: 2026-06-18
 
-## Summary
+## Bottom Line
 
-PufferLib was evaluated as a possible IsaacLab reinforcement-learning backend.
-The result now splits by observation regime:
+The current edit does not prove that PufferLib's compiled native Ocean trainer is
+faster for IsaacLab, because that trainer still cannot consume an externally
+owned IsaacLab/Warp vector environment. The native probe now makes that explicit:
+`pufferlib._C` imports and exposes `create_vec`, but it has no external-vector
+hook and `native_train_available` is `false`.
 
-- With state observations and matched PPO, a pure-PyTorch Puffer-style backend
-  can match RSL-RL learning quality on both a simple locomotion task and the
-  rough-terrain quadruped task, but it was slightly slower in this prototype.
-- With Newton/Warp rendering and pixel observations in the loop, the balance
-  changes. After fixing duplicate shared-CNN work in the experimental camera
-  runner, the Puffer-style backend was consistently faster than RSL-RL on
-  throughput because PPO update time dropped enough to offset slower
-  rollout/render time.
+What is actually tested and useful is the tensor-native IsaacLab/Puffer-style
+path:
 
-The final comparison uses real learning runs and a matched PPO profile. It
-copies the task's RSL-RL actor/critic MLP sizes, optimizer, PPO epochs,
-minibatches, horizon, discounting, GAE lambda, clipping, entropy/value
-coefficients, initial action std, adaptive KL schedule, action clipping, and
-timeout bootstrapping.
+- For state-observation PPO on realistic 4096-env IsaacLab tasks, the matched
+  Puffer-style PyTorch backend learns in the same range as RSL-RL but is slower
+  on throughput. This is not a performance win.
+- For Newton/Warp rendered RGB camera observations, the corrected Puffer-style
+  camera backend is consistently faster than RSL-RL in the tested Cartpole
+  camera workload. Fresh seed-44 runs show +25% to +28% iteration SPS across
+  100x100, 160x160, and 224x224 camera cases.
+- The camera win is not from faster simulation or rendering. Puffer rollout is
+  still slower. The win comes from lower PPO update time after avoiding duplicate
+  shared-CNN actor/critic work.
 
-Bottom line:
+The practical recommendation is to continue with a tensor-native Hermes/IsaacLab
+backend prototype for pixel-heavy workloads. A true compiled PufferLib-native
+IsaacLab path only becomes meaningful after PufferLib grows a native external
+vector hook that accepts IsaacLab-owned CUDA buffers and callbacks.
 
-- `Isaac-Ant-v0`: matched Puffer estimated return `151.4` vs RSL-RL return
-  `152.2`; matched Puffer `260k SPS` vs RSL-RL `286k FPS/SPS`.
-- `Isaac-Velocity-Rough-Anymal-C-v0`: matched Puffer estimated return `17.0`
-  vs RSL-RL return `16.9`; matched Puffer `68.7k SPS` vs RSL-RL `71.9k FPS/SPS`.
-- `Isaac-Cartpole-Camera-Direct` with Newton/Warp RGB camera observations:
-  optimized Puffer was faster than RSL-RL by `+21.6%` to `+42.5%` at 100x100
-  across 256-2048 envs, `+27.2%` at 160x160/256 envs, and about `+24%` at
-  224x224/128 envs across two seeds.
-- The Puffer-specific MinGRU/Muon exploratory profile did not learn in the
-  short 300-iteration runs.
-- Current value: for state-observation locomotion, experimental backend
-  flexibility and config-controlled algorithm prototyping; for rendered-pixel
-  RL, a concrete throughput reason to prototype a tensor-native Hermes/IsaacLab
-  backend.
-- Not shown: a native PufferLib/Ocean speedup. PufferLib 4.0 expects compiled
-  Ocean-style C environments, so IsaacLab would need a native bridge or
-  external-vector hook before it can use the headline native backend path.
+## What Changed
 
-Follow-up native-path writeup:
+PufferLib checkout:
 
-- [`native-integration-path.md`](native-integration-path.md) covers the
-  external-vector approach, pure-Warp-only scope, local prototype changes, and
-  why the main blocker is currently a PufferLib native hook rather than an
-  IsaacLab task port.
-- [`cartpole-camera-newton-pixel-results.md`](cartpole-camera-newton-pixel-results.md)
-  covers the June 16 Newton/Warp camera-mode experiments and the corrected value
-  assessment for pixel-heavy RL.
+- Added `pufferlib.external.ExternalGPUVec`.
+- Exported `ExternalGPUVec` from `pufferlib/__init__.py`.
+- Added protocol tests in `tests/test_external_gpu_vec.py`.
+- Adjusted `build.sh` so the local GCC build path can use `-lgomp` instead of
+  Clang-only OpenMP assumptions.
 
-## Relevance to Lab and Newton
+IsaacLab checkout:
 
-For a Lab/Newton reader, this should be treated as an IsaacLab RL-backend
-experiment, not as a Newton physics change. The prototype runs on IsaacLab vector
-environments and can therefore sit above either PhysX-backed or Newton-backed
-simulation paths, but it does not modify Newton, replace the Newton integration,
-or demonstrate a Newton-specific performance improvement.
+- Added experimental `isaaclab_rl.pufferlib` package:
+  - `puffer_cfg.py`: PPO config used by the experimental runner.
+  - `vecenv_wrapper.py`: IsaacLab Gym/vector-env tensor wrapper with actor and
+    critic observation group handling.
+  - `runner.py`: pure-PyTorch PPO runner with three explicit profiles:
+    `matched_rsl`, `camera_cnn`, and `puffer_mingru`.
+  - `warp_bridge.py`: pointer/callback ABI sketch for IsaacLab CUDA buffers.
+  - `native.py`: native availability probe plus explicit failure path for the
+    missing compiled external-vector hook.
+- Added `scripts/reinforcement_learning/pufferlib/train.py`, using the normal
+  IsaacLab launcher, preset resolution, task registry, log dumping, and RSL-RL
+  config matching.
+- Patched `NewtonWarpRenderer` to adapt to installed Newton `1.2.0rc2`, where
+  `SensorTiledCamera.update()` does not accept `hdr_color_image`. PPISP still
+  fails fast if HDR output is required but unsupported.
 
-The practical value is that IsaacLab could host a Puffer-style experimental
-trainer while preserving the normal task surface. That is useful if the team
-wants a controlled place to test alternative policy architectures, optimizers,
-or a future PufferLib-native bridge against Lab/Newton tasks. The current data
-does not justify a broad product claim that PufferLib makes Lab or Newton
-training faster in general, but the camera probes do justify a targeted
-pixel-heavy Hermes/IsaacLab backend prototype.
+## Native-Adapter Validation
 
-## Repositories and Baselines
+Validated command family:
 
-PufferLib inspected:
-
-- Repository: `PufferAI/PufferLib`
-- Branch: `4.0`
-- Commit inspected: `9836f0d2`
-
-IsaacLab prototype checkout:
-
-- Repository: `ClawLabby/IsaacLab`
-- Base branch at time of work: `reference/warp-replicator-compat-shim`
-- Base commit: `f89ec0a6544` (`Add Warp compatibility shim for Replicator`)
-
-The prototype was scratch work in the IsaacLab checkout. At the time these notes
-were written, the backend files were local/untracked rather than committed to an
-IsaacLab branch.
-
-## Comparison Methodology
-
-The matched comparison controls both environment workload and trainer workload:
-
-- Puffer-style PoC: `4096 envs * 24 horizon = 98,304 transitions`
-- RSL-RL baseline: `4096 envs * 24 num_steps_per_env = 98,304 transitions`
-
-Matching the transition count alone is not enough. Trainer workload can change
-throughput substantially, so the final comparison also matches or accounts for:
-
-- Actor and critic model shape.
-- Optimizer and PPO update schedule.
-- Learning epochs and minibatch count.
-- Rollout storage, timeout bootstrapping, NaN checks, normalization hooks, and
-  logger bookkeeping.
-- CUDA synchronization around rollout and training timers.
-
-Short integration checks are still useful for proving that a backend can step
-and update without crashing. They should not be used as speed evidence unless
-the trainer workload and timing boundaries are also matched.
-
-## Prototype Integration
-
-The useful prototype is an experimental pure-PyTorch backend under
-`isaaclab_rl.pufferlib` plus a `scripts/reinforcement_learning/pufferlib/train.py`
-entrypoint.
-
-Files created in the IsaacLab checkout:
-
-- `source/isaaclab_rl/isaaclab_rl/pufferlib/__init__.py`
-- `source/isaaclab_rl/isaaclab_rl/pufferlib/puffer_cfg.py`
-- `source/isaaclab_rl/isaaclab_rl/pufferlib/runner.py`
-- `source/isaaclab_rl/isaaclab_rl/pufferlib/vecenv_wrapper.py`
-- `source/isaaclab_rl/isaaclab_rl/pufferlib/warp_bridge.py`
-- `scripts/reinforcement_learning/pufferlib/train.py`
-
-The backend has two explicit profiles:
-
-- `matched_rsl`: the actual comparison path. It builds separate Gaussian actor
-  and critic MLPs and copies the RSL-RL task config.
-- `puffer_mingru`: the experimental Puffer-specific path. It uses PufferLib
-  `DefaultEncoder`, `MinGRU`, `DefaultDecoder`, `Policy`, and Muon. It is kept
-  separate so it cannot be confused with an apples-to-apples PPO comparison.
-
-Matched features implemented:
-
-- RSL-RL actor and critic hidden dimensions.
-- RSL-RL activation, distribution std init, scalar/log std mode, and action
-  clipping.
-- PPO horizon, learning epochs, minibatches, Adam learning rate, adaptive KL,
-  desired KL, clipped policy/value losses, value and entropy coefficients,
-  gamma, lambda, and gradient clipping.
-- Timeout bootstrapping from `extras["time_outs"]`.
-- Actor and critic observation group handling.
-- Global or per-minibatch advantage normalization control.
-- Optional finite-gradient and non-finite tensor guards.
-- CUDA synchronization around rollout and train timing.
-- JSONL metrics and TensorBoard scalar logging.
-- IsaacLab reward-term logging from `extras["log"]` when present.
-
-The `PufferWarpBridge` file is only an ABI sketch. It exposes Ocean-shaped
-pointer/callback concepts such as observation/action pointers, reset, GPU step,
-log, and close. It is not a compiled native bridge.
-
-## Benchmark Harness
-
-The long-run launcher executed this matrix:
-
-- RSL-RL and matched Puffer on `Isaac-Ant-v0`
-  - 4096 envs
-  - 1000 iterations
-  - seeds 42 and 43
-- RSL-RL and matched Puffer on `Isaac-Velocity-Rough-Anymal-C-v0`
-  - 4096 envs
-  - 1500 iterations
-  - seeds 42 and 43
-- Puffer MinGRU/Muon exploratory runs on both tasks
-  - 4096 envs
-  - 300 iterations
-  - seed 42
-
-The raw local run root was named:
-
-```text
-pufferlib-isaaclab-eval/learning_runs/full_20260609T161900Z
+```bash
+cd /home/horde/claw/git/IsaacLab
+PYTHONPATH=/home/horde/claw/research/PufferLib ./isaaclab.sh -p -m pytest \
+  /home/horde/claw/research/PufferLib/tests/test_external_gpu_vec.py
 ```
 
-This note intentionally does not commit local absolute paths or raw log
-directories. A sanitized result payload is included in
-[`results-summary.json`](results-summary.json).
+Result: 4 tests passed.
 
-## Aggregate Results
+Real Warp CUDA pointer smoke:
 
-| Task | Backend/profile | Seeds | Return metric | Mean return | Mean throughput |
-| --- | --- | ---: | --- | ---: | ---: |
-| `Isaac-Ant-v0` | RSL-RL | 42, 43 | `Train/mean_reward` | `152.2` | `286.2k` |
-| `Isaac-Ant-v0` | Puffer `matched_rsl` | 42, 43 | estimated episodic return | `151.4` | `260.3k` |
-| `Isaac-Velocity-Rough-Anymal-C-v0` | RSL-RL | 42, 43 | `Train/mean_reward` | `16.9` | `71.9k` |
-| `Isaac-Velocity-Rough-Anymal-C-v0` | Puffer `matched_rsl` | 42, 43 | estimated episodic return | `17.0` | `68.7k` |
-| `Isaac-Ant-v0` | Puffer `puffer_mingru` | 42 | estimated episodic return | `0.8` | `232.0k` |
-| `Isaac-Velocity-Rough-Anymal-C-v0` | Puffer `puffer_mingru` | 42 | estimated episodic return | `-2.3` | `49.6k` |
+- Warp version: 1.13.0
+- Device: NVIDIA L40 on `cuda:0`
+- `ExternalGPUVec.from_warp(...)` preserved observation, reward, terminal, and
+  action-mask CUDA pointers.
+- `gpu_step(123456)` forwarded the action pointer to the callback unchanged.
 
-For Puffer runs, `mean_reward` is rollout mean reward per environment step.
-RSL-RL's `Train/mean_reward` is an episodic return metric. The summary therefore
-estimates Puffer episodic return as:
+Native PufferLib probe after installing the missing local `rich_argparse`
+dependency:
 
-```text
-last_50_mean_reward / last_50_mean_done_rate
+```json
+{
+  "c_env_name": "squared_continuous",
+  "c_gpu": 0,
+  "c_precision_bytes": 4,
+  "can_import_c": true,
+  "can_import_torch_pufferl": true,
+  "error": null,
+  "external_vec_hook": null,
+  "has_create_pufferl": false,
+  "has_create_vec": true,
+  "has_external_gpu_vec": true,
+  "has_external_vec_hook": false,
+  "native_train_available": false
+}
 ```
 
-Equivalently:
+Interpretation: the PufferLib-side external buffer adapter is real and tested,
+including against real Warp arrays. The compiled native trainer still cannot be
+used for IsaacLab-owned environments because there is no `_C` hook such as
+`create_external_pufferl` or `create_pufferl_from_vec`.
 
-```text
-last_50_mean_reward * estimated_episode_length
-```
+Native-adapter log:
+`/home/horde/claw/pufferlib-isaaclab-eval/native_validation_20260618T_now/native_probe_after_dependency.log`
 
-This is a reasonable comparison bridge for this experiment, but it is not as
-clean as making both backends log the exact same episodic-return accumulator.
+## State-Observation Learning: Realistic 4096-Env Tasks
 
-## Per-Seed Results
+These are the best state-observation learning comparisons because they run
+longer than the fresh confirmation pass:
 
-### Ant
+- Run root:
+  `/home/horde/claw/pufferlib-isaaclab-eval/learning_runs/full_20260609T161900Z`
+- `Isaac-Ant-v0`: 4096 envs, 1000 iterations, seeds 42 and 43.
+- `Isaac-Velocity-Rough-Anymal-C-v0`: 4096 envs, 1500 iterations, seeds 42 and
+  43.
+- Puffer profile: `matched_rsl`, copying the RSL-RL actor/critic MLP sizes,
+  rollout horizon, PPO epochs, minibatches, Adam learning rate, KL schedule,
+  gamma/lambda, value/entropy coefficients, clipping, timeout bootstrapping, and
+  action std initialization.
 
-| Seed | Backend/profile | Return | Throughput | Notes |
-| ---: | --- | ---: | ---: | --- |
-| 42 | RSL-RL | `151.69` | `287.2k` | TensorBoard `Train/mean_reward` and `Perf/total_fps` |
-| 42 | Puffer `matched_rsl` | `134.84` | `260.2k` | Estimated return from last-50 reward/done |
-| 43 | RSL-RL | `152.67` | `285.2k` | TensorBoard `Train/mean_reward` and `Perf/total_fps` |
-| 43 | Puffer `matched_rsl` | `167.91` | `260.3k` | Estimated return from last-50 reward/done |
-| 42 | Puffer `puffer_mingru` | `0.76` | `232.0k` | 300 iterations only; did not learn |
+| Task | Seed | RSL reward/return | Puffer est. return | Return delta | RSL FPS | Puffer FPS | FPS delta | RSL train | Puffer train |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Ant | 42 | 151.69 | 134.84 | -11.1% | 287,157 | 265,179 | -7.7% | 0.095s | 0.117s |
+| Ant | 43 | 152.67 | 167.91 | +10.0% | 285,237 | 263,434 | -7.6% | 0.094s | 0.116s |
+| Anymal-C Rough | 42 | 16.21 | 17.21 | +6.2% | 71,332 | 68,403 | -4.1% | 0.100s | 0.125s |
+| Anymal-C Rough | 43 | 17.61 | 16.84 | -4.4% | 72,456 | 69,955 | -3.5% | 0.097s | 0.121s |
 
-The matched Puffer seed spread is larger than RSL-RL's seed spread, but the
-two-seed mean is essentially the same. On throughput, the pure-PyTorch Puffer
-runner was about 9% slower than RSL-RL in the final iteration metrics.
+Fresh seed-44 confirmation, 4096 envs and 200 iterations:
 
-### Rough Anymal-C
+| Task | RSL reward/return | Puffer est. return | RSL FPS | Puffer FPS | FPS delta |
+|---|---:|---:|---:|---:|---:|
+| Ant | 87.36 | 93.66 | 292,573 | 257,434 | -12.0% |
+| Anymal-C Rough | 11.34 | 11.02 | 73,722 | 67,170 | -8.9% |
 
-| Seed | Backend/profile | Return | Throughput | Notes |
-| ---: | --- | ---: | ---: | --- |
-| 42 | RSL-RL | `16.21` | `71.3k` | TensorBoard `Train/mean_reward` and `Perf/total_fps` |
-| 42 | Puffer `matched_rsl` | `17.21` | `67.7k` | Estimated return from last-50 reward/done |
-| 43 | RSL-RL | `17.61` | `72.5k` | TensorBoard `Train/mean_reward` and `Perf/total_fps` |
-| 43 | Puffer `matched_rsl` | `16.84` | `69.7k` | Estimated return from last-50 reward/done |
-| 42 | Puffer `puffer_mingru` | `-2.31` | `49.6k` | 300 iterations only; did not learn |
+State-task conclusion: the matched Puffer-style runner is close enough to be a
+valid experimental backend, but it is not faster than RSL-RL for state
+observations. RSL-RL remains ahead on FPS and PPO update time in the realistic
+state tasks tested here.
 
-On rough locomotion, matched Puffer reached the same reward scale as RSL-RL. It
-was about 4-5% slower on final-iteration throughput.
+## Newton/Warp Camera Learning
 
-## Timing Interpretation
+Fresh seed-44 camera validation:
 
-The final timing numbers are more reliable because the Puffer runner explicitly
-synchronizes CUDA around rollout and train timers. Still, the timing comparison
-is not a full systems benchmark:
+- Run root:
+  `/home/horde/claw/pufferlib-isaaclab-eval/native_validation_20260618T_now`
+- Task: `Isaac-Cartpole-Camera-Direct`
+- Presets: `newton_mjwarp,newton_renderer,rgb`
+- Device: `cuda:0`, headless.
+- Puffer profile: `camera_cnn`.
+- Warmup handling: summaries exclude iteration 0.
 
-- RSL-RL and the Puffer prototype do not expose identical metric definitions.
-- Puffer's total wall-clock training time was not extracted into the summary the
-  same way RSL-RL's `Training time: ... seconds` line was extracted.
-- The final numbers are from two seeds and one machine, not a sweep over
-  machines, task variants, or policy sizes.
-- Throughput is not the only objective; reward scale and stability matter more
-  for backend adoption.
+| Camera case | RSL SPS | Puffer SPS | Puffer vs RSL | RSL collect/learn | Puffer rollout/train |
+|---|---:|---:|---:|---:|---:|
+| 100x100, 512 envs, 25 iters | 13,370 | 16,954 | +26.8% | 0.148/0.465s | 0.171/0.312s |
+| 160x160, 256 envs, 15 iters | 5,110 | 6,518 | +27.5% | 0.168/0.634s | 0.198/0.430s |
+| 224x224, 128 envs, 10 iters | 2,305 | 2,884 | +25.1% | 0.165/0.723s | 0.194/0.516s |
 
-The useful conclusion is not "Puffer is faster." The useful conclusion is:
-under a matched PPO setup, the experimental runner can learn the same tasks to
-the same reward range, so it is valid as a testbed for further backend ideas.
+Artifacts:
 
-## PufferLib-Specific Path
+- Summary:
+  `/home/horde/claw/pufferlib-isaaclab-eval/native_validation_20260618T_now/CAMERA_SUMMARY.md`
+- JSON:
+  `/home/horde/claw/pufferlib-isaaclab-eval/native_validation_20260618T_now/camera_summary.json`
+- Follow-up validation log:
+  `/home/horde/claw/pufferlib-isaaclab-eval/native_validation_20260618T_now/validation_followup_20260618T134149Z.log`
 
-The `puffer_mingru`/Muon path was included because it is closer to the kind of
-value PufferLib could bring beyond a plain PPO clone. It did not work out of the
-box:
+Exit-marker note: all RSL camera markers are zero. The 160x160 and 224x224
+Puffer markers are zero. The 100x100 Puffer run has complete JSONL metrics,
+TensorBoard event output, `model_final.pt`, and the final "wrote logs" message,
+but the earlier interrupted wrapper did not leave a `puffer.exit` marker for
+that one run.
 
-- Ant after 300 iterations: estimated return `0.76`.
-- Rough Anymal-C after 300 iterations: estimated return `-2.31`.
+Prior camera sweeps remain consistent with the fresh seed-44 result:
 
-Likely causes:
+| Camera case | Seed | RSL SPS | Puffer SPS | Puffer vs RSL |
+|---|---:|---:|---:|---:|
+| 100x100, 256 envs | 42 | 11,634 | 14,144 | +21.6% |
+| 100x100, 512 envs | 42 | 13,651 | 16,873 | +23.6% |
+| 100x100, 1024 envs | 42 | 14,278 | 19,101 | +33.8% |
+| 100x100, 2048 envs | 42 | 14,055 | 20,033 | +42.5% |
+| 100x100, 512 envs | 43 | 13,581 | 17,087 | +25.8% |
+| 224x224, 128 envs | 43 | 2,323 | 2,895 | +24.6% |
 
-- The MinGRU policy and Muon optimizer were not tuned for these continuous
-  IsaacLab locomotion tasks.
-- The profile uses a different value/policy setup than RSL-RL, so matched PPO
-  hyperparameters are not necessarily appropriate.
-- Continuous-control action distribution details and recurrent-state handling
-  need dedicated tuning.
+Camera-task conclusion: pixel observations are the real performance-positive
+case. The Puffer-style backend is slower in rollout/render by roughly 23-30 ms
+per iteration in the fresh camera cases, but it saves roughly 153-207 ms per
+PPO update, so total iteration SPS improves by about 25-28%.
 
-This should remain labeled exploratory until it can show learning curves on at
-least Ant before being used on rough quadruped locomotion.
+## What This Means for "Native"
 
-## Native PufferLib Integration Gap
+There are three distinct paths:
 
-PufferLib 4.0's strongest performance story is its native backend: static
-buffers, CUDA graph tracing, fused kernels, and compiled Ocean C environments.
-The IsaacLab prototype does not use that path.
+1. Fully compiled PufferLib native Ocean trainer.
+   This is not currently usable for IsaacLab-owned environments. The compiled
+   extension creates its own Ocean vecs and exposes no external-vector hook.
 
-Current gap:
+2. PufferLib Python wrapper over external GPU buffers.
+   `ExternalGPUVec` now supplies the pointer/callback surface and is validated
+   against real Warp arrays. This is a useful bridge component, but it is not
+   itself the full compiled trainer.
 
-- PufferLib 4.0 constructs environments through compiled Ocean modules.
-- IsaacLab environments live behind Python/Gymnasium-style vector envs backed by
-  PhysX/Isaac Sim tensors.
-- The old Python vectorization/emulation path referenced by some examples is not
-  present as a straightforward package API in the inspected 4.0 tree.
+3. Tensor-native IsaacLab/Puffer-style backend.
+   This is the path actually evaluated for performance. It is not a state-task
+   speed win, but it is a consistent rendered-camera speed win because it
+   reduces trainer overhead and avoids duplicate shared CNN work.
 
-A native integration would need one of these:
+## Recommendation
 
-- A PufferLib external-vector environment hook that can consume IsaacLab GPU
-  tensors without pretending to be an Ocean module.
-- A small C++/CUDA shim that presents an Ocean-compatible `StaticVec`-style ABI
-  while forwarding step/reset/log callbacks to IsaacLab.
-- A larger rework that moves enough IsaacLab rollout state into PufferLib-owned
-  static buffers to make CUDA graph capture and fused update kernels meaningful.
+Do not claim a general PufferLib native speedup for IsaacLab yet.
 
-Until one of those exists, the prototype should be described as
-"Puffer-style/Puffer-inspired pure PyTorch backend," not "native PufferLib
-backend."
+The evidence supports a narrower and more useful claim: a tensor-native
+Hermes/IsaacLab backend is worth pursuing for pixel-heavy Newton/Warp workloads,
+especially if it preserves IsaacLab-owned CUDA tensors and keeps visual encoder
+work shared between actor and critic. State-observation locomotion should not be
+the selling case unless a later native hook or trainer rewrite changes the
+throughput profile.
 
-See [`native-integration-path.md`](native-integration-path.md) for the deeper
-follow-up investigation into that external-vector/native bridge.
-
-## Recommended Next Work
-
-1. Commit the IsaacLab prototype to a dedicated branch if it should be preserved
-   beyond this evaluation. Keep it explicitly experimental.
-2. Preserve the camera-aware backend changes separately from the state-observation
-   PPO comparison path, since the camera result now carries the clearest
-   performance signal.
-3. Run a larger rendered-pixel task with real learning curves and identical
-   episodic-return logging, not only Cartpole throughput probes.
-4. Profile camera rollout/render overhead separately from PPO update overhead.
-5. Make RSL-RL and Puffer log the same episodic-return accumulator so the
-   comparison no longer needs reward/done-rate conversion.
-6. Add a clean wall-clock summary for Puffer runs, matching the RSL-RL
-   `Training time` extraction.
-7. Run a small tuning pass for `puffer_mingru` on Ant only. Do not spend rough
-   Anymal-C time until Ant learning is nontrivial.
-8. If PufferLib remains strategically interesting, prototype the smallest
-   external-vector/native bridge and benchmark env stepping separately from PPO
-   update time.
-9. Treat any future speed claims as invalid unless task, env count, horizon,
-   model size, optimizer, epochs, minibatches, logging, checks, CUDA
-   synchronization, and reward metrics are explicitly matched.
+The next engineering step, if the goal is true native PufferLib integration, is
+small but specific PufferLib-side API work: add a compiled external-vector hook
+that accepts externally owned CUDA observation/reward/done/action buffers plus
+reset/step/log callbacks. Without that hook, the native Ocean path cannot be
+honestly benchmarked on IsaacLab use cases.
