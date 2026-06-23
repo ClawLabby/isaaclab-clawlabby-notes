@@ -1,0 +1,214 @@
+{
+  "runs": [
+    {
+      "backend": "puffer_matched_rsl",
+      "seed": 42,
+      "summary": {
+        "best_mean_reward": 0.153761088848114,
+        "estimated_episode_length": 897.2617743702081,
+        "estimated_episode_return": 134.84016436841114,
+        "iterations": 1000,
+        "last50_mean_done": 0.001114501953125,
+        "last50_mean_reward": 0.15027962654829025,
+        "last_action_std": 0.154641255736351,
+        "last_iteration_sps": 265179.11345880106,
+        "last_learning_rate": 9.876543209876541e-05,
+        "last_mean_reward": 0.15080709755420685,
+        "last_rollout_s": 0.37766265869140625,
+        "last_sps": 260214.63308194993,
+        "last_train_s": 0.11661458015441895,
+        "reward_scale_note": "Puffer mean_reward is rollout mean reward per env step; estimated_episode_return uses last-50 mean_reward / last-50 mean_done.",
+        "status": "ok",
+        "steps": 131072000
+      },
+      "task": "Isaac-Ant-v0"
+    },
+    {
+      "backend": "puffer_matched_rsl",
+      "seed": 43,
+      "summary": {
+        "best_mean_reward": 0.1896604299545288,
+        "estimated_episode_length": 903.3218470020676,
+        "estimated_episode_return": 167.91060987034803,
+        "iterations": 1000,
+        "last50_mean_done": 0.001107025146484375,
+        "last50_mean_reward": 0.18588126748800277,
+        "last_action_std": 0.15899041295051575,
+        "last_iteration_sps": 263433.56268047227,
+        "last_learning_rate": 9.876543209876541e-05,
+        "last_mean_reward": 0.18759258091449738,
+        "last_rollout_s": 0.3812379837036133,
+        "last_sps": 260328.01820045753,
+        "last_train_s": 0.11631441116333008,
+        "reward_scale_note": "Puffer mean_reward is rollout mean reward per env step; estimated_episode_return uses last-50 mean_reward / last-50 mean_done.",
+        "status": "ok",
+        "steps": 131072000
+      },
+      "task": "Isaac-Ant-v0"
+    },
+    {
+      "backend": "puffer_matched_rsl",
+      "seed": 42,
+      "summary": {
+        "best_mean_reward": 0.019038818776607513,
+        "estimated_episode_length": 921.6575712963836,
+        "estimated_episode_return": 17.208384636199362,
+        "iterations": 1500,
+        "last50_mean_done": 0.0010850016656331718,
+        "last50_mean_reward": 0.01867112599313259,
+        "last_action_std": 0.40007925033569336,
+        "last_iteration_sps": 68403.07829733567,
+        "last_learning_rate": 0.0004444444444444446,
+        "last_mean_reward": 0.018761301413178444,
+        "last_rollout_s": 1.3122954368591309,
+        "last_sps": 67676.45387619182,
+        "last_train_s": 0.1248328685760498,
+        "reward_scale_note": "Puffer mean_reward is rollout mean reward per env step; estimated_episode_return uses last-50 mean_reward / last-50 mean_done.",
+        "status": "ok",
+        "steps": 147456000
+      },
+      "task": "Isaac-Velocity-Rough-Anymal-C-v0"
+    },
+    {
+      "backend": "puffer_matched_rsl",
+      "seed": 43,
+      "summary": {
+        "best_mean_reward": 0.018840964883565903,
+        "estimated_episode_length": 917.1860095280185,
+        "estimated_episode_return": 16.840684772914823,
+        "iterations": 1500,
+        "last50_mean_done": 0.0010902913799509407,
+        "last50_mean_reward": 0.018361253440380098,
+        "last_action_std": 0.408270925283432,
+        "last_iteration_sps": 69955.21224184817,
+        "last_learning_rate": 0.0004444444444444446,
+        "last_mean_reward": 0.018840964883565903,
+        "last_rollout_s": 1.2838962078094482,
+        "last_sps": 69698.10661971419,
+        "last_train_s": 0.12134575843811035,
+        "reward_scale_note": "Puffer mean_reward is rollout mean reward per env step; estimated_episode_return uses last-50 mean_reward / last-50 mean_done.",
+        "status": "ok",
+        "steps": 147456000
+      },
+      "task": "Isaac-Velocity-Rough-Anymal-C-v0"
+    },
+    {
+      "backend": "puffer_puffer_mingru",
+      "seed": 42,
+      "summary": {
+        "best_mean_reward": 0.001319503877311945,
+        "estimated_episode_length": 834.8535031847134,
+        "estimated_episode_return": 0.7565719560756806,
+        "iterations": 300,
+        "last50_mean_done": 0.00119781494140625,
+        "last50_mean_reward": 0.0009062331932364032,
+        "last_action_std": 0.9838768243789673,
+        "last_iteration_sps": 240175.438225652,
+        "last_learning_rate": 1e-05,
+        "last_mean_reward": 0.00113073387183249,
+        "last_rollout_s": 0.3721961975097656,
+        "last_sps": 231950.63120943416,
+        "last_train_s": 0.1735382080078125,
+        "reward_scale_note": "Puffer mean_reward is rollout mean reward per env step; estimated_episode_return uses last-50 mean_reward / last-50 mean_done.",
+        "status": "ok",
+        "steps": 39321600
+      },
+      "task": "Isaac-Ant-v0"
+    },
+    {
+      "backend": "puffer_puffer_mingru",
+      "seed": 42,
+      "summary": {
+        "best_mean_reward": -0.022907212376594543,
+        "estimated_episode_length": 89.73928024522519,
+        "estimated_episode_return": -2.3053864725098863,
+        "iterations": 300,
+        "last50_mean_done": 0.011143392249941826,
+        "last50_mean_reward": -0.025689825750887393,
+        "last_action_std": 0.9889639616012573,
+        "last_iteration_sps": 47446.46069584529,
+        "last_learning_rate": 1e-05,
+        "last_mean_reward": -0.026484008878469467,
+        "last_rollout_s": 1.9110448360443115,
+        "last_sps": 49619.66460702306,
+        "last_train_s": 0.16084837913513184,
+        "reward_scale_note": "Puffer mean_reward is rollout mean reward per env step; estimated_episode_return uses last-50 mean_reward / last-50 mean_done.",
+        "status": "ok",
+        "steps": 29491200
+      },
+      "task": "Isaac-Velocity-Rough-Anymal-C-v0"
+    },
+    {
+      "backend": "rsl_rl",
+      "seed": 42,
+      "summary": {
+        "Perf/learning_time": 0.09534931182861328,
+        "Perf/learning_time__best": 0.22660565376281738,
+        "Perf/learning_time__steps": 999,
+        "Perf/total_fps": 287157,
+        "Perf/total_fps__best": 298185,
+        "Perf/total_fps__steps": 999,
+        "Train/mean_reward": 151.69277954101562,
+        "Train/mean_reward__best": 155.6124725341797,
+        "Train/mean_reward__steps": 999,
+        "status": "ok",
+        "training_time_s": 465.35
+      },
+      "task": "Isaac-Ant-v0"
+    },
+    {
+      "backend": "rsl_rl",
+      "seed": 43,
+      "summary": {
+        "Perf/learning_time": 0.09425830841064453,
+        "Perf/learning_time__best": 0.2411060333251953,
+        "Perf/learning_time__steps": 999,
+        "Perf/total_fps": 285237,
+        "Perf/total_fps__best": 293020,
+        "Perf/total_fps__steps": 999,
+        "Train/mean_reward": 152.67088317871094,
+        "Train/mean_reward__best": 156.233154296875,
+        "Train/mean_reward__steps": 999,
+        "status": "ok",
+        "training_time_s": 473.69
+      },
+      "task": "Isaac-Ant-v0"
+    },
+    {
+      "backend": "rsl_rl",
+      "seed": 42,
+      "summary": {
+        "Perf/learning_time": 0.09974813461303711,
+        "Perf/learning_time__best": 0.2430875301361084,
+        "Perf/learning_time__steps": 1499,
+        "Perf/total_fps": 71332,
+        "Perf/total_fps__best": 73448,
+        "Perf/total_fps__steps": 1499,
+        "Train/mean_reward": 16.2080135345459,
+        "Train/mean_reward__best": 17.13692855834961,
+        "Train/mean_reward__steps": 1499,
+        "status": "ok",
+        "training_time_s": 2104.36
+      },
+      "task": "Isaac-Velocity-Rough-Anymal-C-v0"
+    },
+    {
+      "backend": "rsl_rl",
+      "seed": 43,
+      "summary": {
+        "Perf/learning_time": 0.09723210334777832,
+        "Perf/learning_time__best": 0.20987415313720703,
+        "Perf/learning_time__steps": 1499,
+        "Perf/total_fps": 72456,
+        "Perf/total_fps__best": 74833,
+        "Perf/total_fps__steps": 1499,
+        "Train/mean_reward": 17.608348846435547,
+        "Train/mean_reward__best": 17.63413429260254,
+        "Train/mean_reward__steps": 1499,
+        "status": "ok",
+        "training_time_s": 2077.71
+      },
+      "task": "Isaac-Velocity-Rough-Anymal-C-v0"
+    }
+  ]
+}

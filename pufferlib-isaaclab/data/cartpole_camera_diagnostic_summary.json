@@ -1,0 +1,28 @@
+{
+  "runs": [
+    {
+      "comparison": {
+        "puffer_vs_rsl_pct": 25.815367738693105,
+        "rollout_delta_s": 0.021893248001734422,
+        "train_delta_s": -0.1456178348064423
+      },
+      "puffer": {
+        "backend": "puffer",
+        "iterations": 25,
+        "last_sps": 17113.110938229966,
+        "mean_rollout_s": 0.1708099146684011,
+        "mean_sps": 17086.618131102674,
+        "mean_train_s": 0.30863216519355774
+      },
+      "rsl": {
+        "backend": "rsl_rl",
+        "iterations": 25,
+        "last_sps": 13572,
+        "mean_collection_s": 0.14891666666666667,
+        "mean_learning_s": 0.45425000000000004,
+        "mean_sps": 13580.708333333334
+      }
+    }
+  ],
+  "warmup": 1
+}
